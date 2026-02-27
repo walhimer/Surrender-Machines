@@ -145,14 +145,6 @@
       margin: 0 auto;
     }
 
-    /* Override p5-generated slider/label positioning with our own */
-    #machine-stage input[type=range] {
-      display: none !important;
-    }
-    #machine-stage div {
-      display: none !important;
-    }
-
     /* Custom slider panel */
     #controls {
       position: absolute;
@@ -226,6 +218,61 @@
       color: #555;
       margin-top: 6px;
       letter-spacing: 0.06em;
+    }
+
+    /* Fullscreen button */
+    #fs-btn {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      z-index: 20;
+      background: rgba(10,10,10,0.82);
+      border: 1px solid var(--rule);
+      color: var(--dim);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 10px 16px;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      transition: color 0.15s, border-color 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #fs-btn:hover { color: var(--offwhite); border-color: var(--accent); }
+
+    #fs-btn svg {
+      width: 12px;
+      height: 12px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.5;
+    }
+
+    /* Fullscreen overlay mode */
+    #machine-stage.is-fullscreen {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 1000;
+      background: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #machine-stage.is-fullscreen canvas {
+      width: min(100vh, 100vw) !important;
+      height: min(100vh, 100vw) !important;
+      max-width: none !important;
+    }
+
+    #machine-stage.is-fullscreen #controls {
+      top: 20px;
     }
 
     /* zero-state hint inside canvas area */
@@ -472,6 +519,18 @@
     <p>The machine has surrendered.</p>
   </div>
 
+  <button id="fs-btn" title="Toggle fullscreen" aria-label="Toggle fullscreen">
+    <svg id="fs-icon-open" viewBox="0 0 24 24">
+      <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+      <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+    </svg>
+    <svg id="fs-icon-close" viewBox="0 0 24 24" style="display:none">
+      <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
+      <line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/>
+    </svg>
+    <span id="fs-label">Fullscreen</span>
+  </button>
+
 </div>
 
 <!-- ── ORBIT NOTE ──────────────────────────────────────────────────── -->
@@ -562,7 +621,53 @@
      P5.JS SKETCH — embedded inline, driven by custom sliders above
      ══════════════════════════════════════════════════════════════════ -->
 <script>
-// ── Bridge: read from our custom HTML sliders ──────────────────────
+// ── Fullscreen toggle ──────────────────────────────────────────────
+const stage      = document.getElementById('machine-stage');
+const fsBtn      = document.getElementById('fs-btn');
+const fsLabel    = document.getElementById('fs-label');
+const fsIconOpen = document.getElementById('fs-icon-open');
+const fsIconClose= document.getElementById('fs-icon-close');
+
+function enterFullscreen() {
+  stage.classList.add('is-fullscreen');
+  fsLabel.textContent    = 'Exit';
+  fsIconOpen.style.display  = 'none';
+  fsIconClose.style.display = '';
+  document.body.style.overflow = 'hidden';
+}
+
+function exitFullscreen() {
+  stage.classList.remove('is-fullscreen');
+  fsLabel.textContent    = 'Fullscreen';
+  fsIconOpen.style.display  = '';
+  fsIconClose.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+fsBtn.addEventListener('click', () => {
+  stage.classList.contains('is-fullscreen') ? exitFullscreen() : enterFullscreen();
+});
+
+// ESC key exits
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && stage.classList.contains('is-fullscreen')) exitFullscreen();
+});
+
+// Also try native fullscreen API if available
+fsBtn.addEventListener('click', () => {
+  if (stage.classList.contains('is-fullscreen') && document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+  } else if (!stage.classList.contains('is-fullscreen')) {
+    stage.requestFullscreen && stage.requestFullscreen().catch(() => {});
+  }
+});
+
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && stage.classList.contains('is-fullscreen')) {
+    exitFullscreen();
+  }
+});
+
 const _slAnger       = document.getElementById('sl-anger');
 const _slPride       = document.getElementById('sl-pride');
 const _slEgo         = document.getElementById('sl-ego');
