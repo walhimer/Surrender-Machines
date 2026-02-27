@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Surrender Machines — Mark Walhimer</title>
+
+  <!-- p5.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.11.11/lib/p5.min.js"></script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black:   #0a0a0a;
+      --offwhite: #f0ede6;
+      --dim:      #888880;
+      --rule:     #2a2a2a;
+      --accent:   #c8a882;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--black);
+      color: var(--offwhite);
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-weight: 300;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ──────────────────────────────────────────────── */
+    header {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 72px 40px 48px;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .kicker {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 300;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 28px;
+    }
+
+    h1 {
+      font-size: clamp(42px, 7vw, 80px);
+      font-weight: 300;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      margin-bottom: 32px;
+    }
+
+    h1 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .lede {
+      font-size: clamp(18px, 2.2vw, 22px);
+      font-weight: 300;
+      line-height: 1.65;
+      color: var(--offwhite);
+      max-width: 660px;
+      margin-bottom: 24px;
+    }
+
+    .lede strong {
+      font-weight: 400;
+      color: var(--accent);
+    }
+
+    .thesis {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      font-weight: 300;
+      color: var(--dim);
+      border-left: 1px solid var(--rule);
+      padding-left: 20px;
+      line-height: 1.8;
+      max-width: 600px;
+      margin-top: 28px;
+    }
+
+    /* ── INSTRUCTION BAR ─────────────────────────────────────── */
+    .instruction-bar {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .instruction-bar .dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      flex-shrink: 0;
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    .instruction-bar p {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11.5px;
+      font-weight: 300;
+      color: var(--dim);
+      letter-spacing: 0.04em;
+    }
+
+    .instruction-bar p span {
+      color: var(--offwhite);
+    }
+
+    /* ── MACHINE STAGE ───────────────────────────────────────── */
+    #machine-stage {
+      width: 100%;
+      background: #111;
+      position: relative;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    /* p5 canvas fills width, sliders overlaid */
+    #machine-stage canvas {
+      display: block;
+      width: 100% !important;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    /* Override p5-generated slider/label positioning with our own */
+    #machine-stage input[type=range] {
+      display: none !important;
+    }
+    #machine-stage div {
+      display: none !important;
+    }
+
+    /* Custom slider panel */
+    #controls {
+      position: absolute;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(900px, 94vw);
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 12px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .ctrl {
+      pointer-events: all;
+      background: rgba(10,10,10,0.82);
+      border: 1px solid var(--rule);
+      padding: 12px 14px;
+      backdrop-filter: blur(6px);
+    }
+
+    .ctrl-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .ctrl-label span.val {
+      color: var(--offwhite);
+      font-size: 11px;
+    }
+
+    .ctrl input[type=range] {
+      display: block !important;
+      width: 100%;
+      height: 3px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--rule);
+      border-radius: 0;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .ctrl input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--offwhite);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .ctrl input[type=range]::-webkit-slider-thumb:hover {
+      background: var(--accent);
+    }
+
+    .ctrl-desc {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 9.5px;
+      color: #555;
+      margin-top: 6px;
+      letter-spacing: 0.06em;
+    }
+
+    /* zero-state hint inside canvas area */
+    #zero-hint {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+      z-index: 5;
+    }
+
+    #zero-hint.visible { opacity: 1; }
+
+    #zero-hint p {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: clamp(16px, 2.5vw, 24px);
+      color: #333;
+      letter-spacing: 0.06em;
+    }
+
+    /* ── ORBIT NOTE ──────────────────────────────────────────── */
+    .orbit-note {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 14px 40px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10.5px;
+      color: var(--dim);
+      border-bottom: 1px solid var(--rule);
+      letter-spacing: 0.06em;
+    }
+
+    /* ── PROCESS SECTION ─────────────────────────────────────── */
+    .section {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 64px 40px;
+    }
+
+    .section-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 36px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--rule);
+    }
+
+    .process-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1px;
+      background: var(--rule);
+      border: 1px solid var(--rule);
+    }
+
+    .process-step {
+      background: var(--black);
+      padding: 28px 22px;
+    }
+
+    .step-num {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--dim);
+      letter-spacing: 0.14em;
+      margin-bottom: 14px;
+    }
+
+    .step-title {
+      font-size: 20px;
+      font-weight: 300;
+      margin-bottom: 10px;
+      line-height: 1.2;
+    }
+
+    .step-desc {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--dim);
+      line-height: 1.7;
+    }
+
+    /* ── CONCEPT BODY ────────────────────────────────────────── */
+    .concept-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: start;
+    }
+
+    @media (max-width: 620px) {
+      .concept-body { grid-template-columns: 1fr; }
+      #controls { grid-template-columns: 1fr 1fr; }
+    }
+
+    .concept-body p {
+      font-size: clamp(17px, 2vw, 19px);
+      line-height: 1.72;
+      color: #c8c4bc;
+      margin-bottom: 18px;
+    }
+
+    .concept-body p:last-child { margin-bottom: 0; }
+
+    .pull-quote {
+      font-size: clamp(22px, 3vw, 30px);
+      font-style: italic;
+      font-weight: 300;
+      line-height: 1.35;
+      color: var(--offwhite);
+      border-left: 2px solid var(--accent);
+      padding-left: 28px;
+    }
+
+    /* ── RULE ────────────────────────────────────────────────── */
+    hr.divider {
+      border: none;
+      border-top: 1px solid var(--rule);
+      margin: 0;
+    }
+
+    /* ── FOOTER ──────────────────────────────────────────────── */
+    footer {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 40px 80px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 32px;
+      align-items: end;
+      border-top: 1px solid var(--rule);
+    }
+
+    .author-block p {
+      font-size: 16px;
+      color: #888;
+      line-height: 1.65;
+    }
+
+    .author-block strong {
+      display: block;
+      font-size: 20px;
+      font-weight: 400;
+      color: var(--offwhite);
+      margin-bottom: 6px;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .footer-links a {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10.5px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--dim);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .footer-links a:hover { color: var(--accent); }
+
+    @media (max-width: 540px) {
+      footer { grid-template-columns: 1fr; }
+      .footer-links { align-items: flex-start; }
+      header, .instruction-bar, .orbit-note, .section, footer { padding-left: 24px; padding-right: 24px; }
+      #controls { gap: 8px; top: 12px; }
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- ── HEADER ──────────────────────────────────────────────────────── -->
+<header>
+  <p class="kicker">Generative Art &nbsp;/&nbsp; Interactive System &nbsp;/&nbsp; 2023–2026</p>
+  <h1>Surrender<br /><em>Machines</em></h1>
+  <p class="lede">
+    Four human emotions — <strong>anger, pride, ego, frustration</strong> — determine
+    the physical structure of a machine. As each diminishes, parts disappear.
+    When all reach zero, the machine ceases to exist.
+  </p>
+  <div class="thesis">
+    A machine has no ego. It cannot perform the human act of letting go.<br />
+    The paradox: we have built a system to automate surrender —<br />
+    and the system proves it cannot be done.
+  </div>
+</header>
+
+<!-- ── INSTRUCTION BAR ─────────────────────────────────────────────── -->
+<div class="instruction-bar">
+  <div class="dot"></div>
+  <p>Adjust the sliders below. &nbsp;<span>Set all four to zero.</span> &nbsp; Drag to orbit. &nbsp; Scroll to zoom.</p>
+</div>
+
+<!-- ── MACHINE STAGE ───────────────────────────────────────────────── -->
+<div id="machine-stage">
+
+  <!-- Custom controls overlay -->
+  <div id="controls">
+    <div class="ctrl" id="ctrl-anger">
+      <div class="ctrl-label">Anger <span class="val" id="val-anger">50</span></div>
+      <input type="range" id="sl-anger" min="0" max="100" value="50" />
+      <div class="ctrl-desc">gears &amp; gear density</div>
+    </div>
+    <div class="ctrl" id="ctrl-pride">
+      <div class="ctrl-label">Pride <span class="val" id="val-pride">50</span></div>
+      <input type="range" id="sl-pride" min="0" max="100" value="50" />
+      <div class="ctrl-desc">platforms + columns</div>
+    </div>
+    <div class="ctrl" id="ctrl-ego">
+      <div class="ctrl-label">Ego <span class="val" id="val-ego">50</span></div>
+      <input type="range" id="sl-ego" min="0" max="100" value="50" />
+      <div class="ctrl-desc">rods (0 = none)</div>
+    </div>
+    <div class="ctrl" id="ctrl-frustration">
+      <div class="ctrl-label">Frustration <span class="val" id="val-frustration">50</span></div>
+      <input type="range" id="sl-frustration" min="0" max="100" value="50" />
+      <div class="ctrl-desc">pulleys &amp; pulley density</div>
+    </div>
+  </div>
+
+  <div id="zero-hint">
+    <p>The machine has surrendered.</p>
+  </div>
+
+</div>
+
+<!-- ── ORBIT NOTE ──────────────────────────────────────────────────── -->
+<p class="orbit-note">↳ Click &amp; drag to orbit the machine in 3D &nbsp;·&nbsp; scroll to zoom &nbsp;·&nbsp; two-finger pan on mobile</p>
+
+<hr class="divider" />
+
+<!-- ── PROCESS ─────────────────────────────────────────────────────── -->
+<div class="section">
+  <p class="section-label">Process</p>
+  <div class="process-grid">
+    <div class="process-step">
+      <p class="step-num">01</p>
+      <p class="step-title">Schematic</p>
+      <p class="step-desc">Technical drawing of the abstract machine structure — TENSION, STRUCTURE, THRESHOLD annotated</p>
+    </div>
+    <div class="process-step">
+      <p class="step-num">02</p>
+      <p class="step-title">Wireframe</p>
+      <p class="step-desc">3D wireframe rendering. Pure geometry. No surface, no substance — only intention</p>
+    </div>
+    <div class="process-step">
+      <p class="step-num">03</p>
+      <p class="step-title">Sculpture</p>
+      <p class="step-desc">Photorealistic render. Transparent casing reveals inner mechanism. The soul made visible</p>
+    </div>
+    <div class="process-step">
+      <p class="step-num">04</p>
+      <p class="step-title">Generative</p>
+      <p class="step-desc">Live P5.js system above. Emotions control structure in real time. Zero = blank canvas</p>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ── CONCEPT ─────────────────────────────────────────────────────── -->
+<div class="section">
+  <p class="section-label">Concept</p>
+  <div class="concept-body">
+    <div>
+      <p>
+        Surrender Machines explores a central paradox of our computational era:
+        can the act of letting go be automated? Spiritual traditions across cultures
+        treat surrender — the releasing of anger, pride, ego, and frustration — as
+        among the most distinctly human of acts. It requires self-awareness, will,
+        and the capacity to choose against one's own momentum.
+      </p>
+      <p>
+        A machine has none of these. It processes. It executes. It cannot choose
+        to stop wanting. So when we ask an algorithm to model surrender, what do
+        we actually get?
+      </p>
+      <p>
+        This work answers that question directly: at zero, the machine disappears.
+        Not because it has surrendered — but because the inputs that give it form
+        have been withdrawn. The machine didn't let go. We did.
+      </p>
+    </div>
+    <div>
+      <p class="pull-quote">
+        "The system proves the very thing it was built to disprove: surrender cannot be engineered."
+      </p>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ── FOOTER ──────────────────────────────────────────────────────── -->
+<footer>
+  <div class="author-block">
+    <p><strong>Mark Walhimer</strong>
+      Museum planner, industrial designer, generative artist.<br />
+      Author of <em>Museums 101</em> and <em>Designing Museum Experiences</em>.<br />
+      Published on Objkt.com &amp; Paragraph.art.
+    </p>
+  </div>
+  <div class="footer-links">
+    <a href="https://medium.com/@markwalhimer" target="_blank" rel="noopener">Medium</a>
+    <a href="https://objkt.com" target="_blank" rel="noopener">Objkt</a>
+    <a href="https://markwalhimer.com" target="_blank" rel="noopener">markwalhimer.com</a>
+  </div>
+</footer>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     P5.JS SKETCH — embedded inline, driven by custom sliders above
+     ══════════════════════════════════════════════════════════════════ -->
+<script>
+// ── Bridge: read from our custom HTML sliders ──────────────────────
+const _slAnger       = document.getElementById('sl-anger');
+const _slPride       = document.getElementById('sl-pride');
+const _slEgo         = document.getElementById('sl-ego');
+const _slFrustration = document.getElementById('sl-frustration');
+
+function _getSliderVal(el) { return parseInt(el.value, 10); }
+
+// Update display values & zero-hint
+[_slAnger, _slPride, _slEgo, _slFrustration].forEach((sl, i) => {
+  const ids = ['anger','pride','ego','frustration'];
+  sl.addEventListener('input', () => {
+    document.getElementById('val-' + ids[i]).textContent = sl.value;
+    const allZero = _getSliderVal(_slAnger) === 0 &&
+                    _getSliderVal(_slPride) === 0 &&
+                    _getSliderVal(_slEgo) === 0 &&
+                    _getSliderVal(_slFrustration) === 0;
+    document.getElementById('zero-hint').classList.toggle('visible', allZero);
+  });
+});
+</script>
+
+<script>
+// ── SURRENDER MACHINE – p5 sketch ─────────────────────────────────
+let parts = [];
+let seed = 12345;
+
+let angerVal       = 0.5;
+let prideVal       = 0.5;
+let egoVal         = 0.5;
+let frustrationVal = 0.5;
+
+let gPlatformExtras = 2;
+let gColumnCount    = 6;
+let gGearCount      = 120;
+let gPulleyCount    = 20;
+let gRodCount       = 10;
+
+let prevPlatformExtras = -1;
+let prevColumnCount    = -1;
+let prevGearCount      = -1;
+let prevPulleyCount    = -1;
+let prevRodCount       = -1;
+
+let hasAnyActivity = true;
+let machineBuilt   = false;
+
+// p5 sketch runs inside the machine-stage div
+const sketch = function(p) {
+
+  p.setup = function() {
+    const stage = document.getElementById('machine-stage');
+    const size  = Math.min(stage.offsetWidth, 1000);
+    const cnv   = p.createCanvas(size, size, p.WEBGL);
+    cnv.parent('machine-stage');
+    p.pixelDensity(Math.min(window.devicePixelRatio, 2));
+    p.angleMode(p.RADIANS);
+    p.colorMode(p.HSB, 360, 100, 100, 100);
+    p.smooth();
+
+    updateTargets();
+    buildMachine();
+    machineBuilt = true;
+  };
+
+  p.draw = function() {
+    updateTargets();
+
+    if (!hasAnyActivity) {
+      p.background(0, 0, 100);
+      return;
+    }
+
+    if (
+      gPlatformExtras !== prevPlatformExtras ||
+      gColumnCount    !== prevColumnCount    ||
+      gGearCount      !== prevGearCount      ||
+      gPulleyCount    !== prevPulleyCount    ||
+      gRodCount       !== prevRodCount       ||
+      !machineBuilt
+    ) {
+      buildMachine();
+      machineBuilt = true;
+      prevPlatformExtras = gPlatformExtras;
+      prevColumnCount    = gColumnCount;
+      prevGearCount      = gGearCount;
+      prevPulleyCount    = gPulleyCount;
+      prevRodCount       = gRodCount;
+    }
+
+    p.background(0, 0, 100);
+    p.ambientLight(80);
+    p.directionalLight(255, 255, 255,  0.35, -0.4, -1);
+    p.directionalLight(180, 180, 255, -0.3,   0.2,  1);
+    p.orbitControl();
+    p.rotateX(-0.4);
+    p.rotateY(0.3);
+    p.translate(0, 50, 0);
+
+    const t = p.millis() * 0.001;
+    for (let part of parts) { part.update(t); part.draw(t); }
+  };
+
+  // ── Window resize ──────────────────────────────────────────────
+  p.windowResized = function() {
+    const stage = document.getElementById('machine-stage');
+    const size  = Math.min(stage.offsetWidth, 1000);
+    p.resizeCanvas(size, size);
+  };
+
+  // ── Slider → counts ───────────────────────────────────────────
+  function updateTargets() {
+    angerVal       = _getSliderVal(_slAnger)       / 100.0;
+    prideVal       = _getSliderVal(_slPride)       / 100.0;
+    egoVal         = _getSliderVal(_slEgo)         / 100.0;
+    frustrationVal = _getSliderVal(_slFrustration) / 100.0;
+
+    hasAnyActivity = angerVal > 0 || prideVal > 0 || egoVal > 0 || frustrationVal > 0;
+
+    if (!hasAnyActivity) {
+      gPlatformExtras = gColumnCount = gGearCount = gPulleyCount = gRodCount = 0;
+      return;
+    }
+
+    gGearCount      = p.floor(p.map(angerVal,       0, 1, 0, 260));
+    gPlatformExtras = p.floor(p.map(prideVal,        0, 1, 0, 3));
+    gColumnCount    = p.floor(p.map(prideVal,        0, 1, 0, 12));
+    gRodCount       = p.floor(p.map(egoVal,          0, 1, 0, 25));
+    gPulleyCount    = p.floor(p.map(frustrationVal,  0, 1, 0, 70));
+
+    if (gPulleyCount === 0) gGearCount = 0;
+  }
+
+  // ── Gradient fill helper ───────────────────────────────────────
+  function gradientFill(x, y, z, baseHue, hueSpread, maxAlpha, t) {
+    const nx = p.constrain(p.map(x, -600, 600, -1, 1), -1, 1);
+    const ny = p.constrain(p.map(y, -600, 600, -1, 1), -1, 1);
+    const nz = p.constrain(p.map(z, -600, 600, -1, 1), -1, 1);
+    const posFactor  = nx + ny + nz;
+    const timeFactor = p.sin(t * 0.9 + posFactor * 2.5);
+    let h = baseHue + hueSpread * (0.5 * posFactor + 0.5 * timeFactor);
+    h = (h % 360 + 360) % 360;
+    maxAlpha = p.min(maxAlpha, 85);
+    const minAlpha = maxAlpha * 0.25;
+    const f        = (ny + 1) * 0.5;
+    p.fill(h, 100, 100, p.lerp(minAlpha, maxAlpha, f));
+  }
+
+  // ── Build machine ─────────────────────────────────────────────
+  function buildMachine() {
+    parts = [];
+    if (!hasAnyActivity) return;
+
+    p.randomSeed(seed);
+
+    const sf        = 1.2;
+    const baseW     = 600 * sf;
+    const baseD     = 600 * sf;
+    const baseThick = 25  * sf;
+
+    parts.push(new BasePlate(0, 0, 0, baseW, baseThick, baseD));
+
+    for (let i = 0; i < gPlatformExtras; i++) {
+      const w  = baseW * p.random(0.6, 1.1);
+      const d  = baseD * p.random(0.6, 1.1);
+      const h  = baseThick * p.random(0.6, 1.3);
+      const px = p.random(-60, 60) * sf;
+      const pz = p.random(-60, 60) * sf;
+      const py = -p.random(80, 220) * sf;
+      parts.push(new BasePlate(px, py, pz, w, h, d));
+    }
+
+    const columnPositions = [];
+    if (gColumnCount > 0) {
+      const colH = p.random(140, 220) * sf;
+      const colR = p.random(14, 24)   * sf;
+      for (let i = 0; i < gColumnCount; i++) {
+        const x = p.random(-baseW * 0.35, baseW * 0.35);
+        const z = p.random(-baseD * 0.35, baseD * 0.35);
+        parts.push(new Column(x, -colH / 2 - baseThick / 2, z, colR, colH));
+        columnPositions.push(p.createVector(x, -colH, z));
+      }
+    }
+
+    if (columnPositions.length === 0) return;
+
+    for (let i = 0; i < gGearCount; i++) {
+      const anchor  = p.random(columnPositions);
+      const r       = p.random(40, 80) * sf;
+      const thick   = p.random(14, 26) * sf;
+      const teeth   = p.floor(p.random(8, 18));
+      const yOff    = p.random(-200, 200);
+      const speed   = p.random([-1, 1]) * p.random(0.2, 0.8);
+      const GearCls = p.random() < 0.5 ? GearHorizontal : GearVertical;
+      parts.push(new GearCls(
+        anchor.x + p.random(-80, 20),
+        anchor.y + yOff,
+        anchor.z + p.random(-20, 20),
+        r, thick, teeth, speed
+      ));
+    }
+
+    for (let i = 0; i < gPulleyCount; i++) {
+      const a = p.random(columnPositions);
+      const b = p.random(columnPositions);
+      if (a === b) continue;
+      const mid   = p5.Vector.add(a, b).mult(0.5);
+      const r     = p.random(25, 55) * sf;
+      const thick = p.random(10, 18) * sf;
+      const speed = p.random([-1, 1]) * p.random(0.4, 1.0);
+      parts.push(new PulleyStandalone(
+        mid.x, mid.y + p.random(-40, 40), mid.z, r, thick, speed
+      ));
+    }
+
+    for (let i = 0; i < gRodCount; i++) {
+      const a = p.random(columnPositions);
+      const b = p.random(columnPositions);
+      if (a === b) continue;
+      parts.push(new RodWithAttachments(
+        a.x, a.y, a.z, b.x, b.y, b.z,
+        p.random(5, 9) * sf, angerVal, frustrationVal
+      ));
+    }
+  }
+
+  // ── Part classes ──────────────────────────────────────────────
+
+  class BasePlate {
+    constructor(x, y, z, w, h, d) {
+      this.pos = p.createVector(x, y, z);
+      this.w = w; this.h = h; this.d = d;
+    }
+    update() {}
+    draw(t) {
+      p.push();
+      p.translate(this.pos.x, this.pos.y + this.h / 2, this.pos.z);
+      p.noStroke();
+      gradientFill(this.pos.x, this.pos.y, this.pos.z, 305, 110, 80, t);
+      p.box(this.w, this.h, this.d);
+      p.pop();
+    }
+  }
+
+  class Column {
+    constructor(x, y, z, r, h) {
+      this.pos = p.createVector(x, y, z);
+      this.r = r; this.h = h;
+    }
+    update() {}
+    draw(t) {
+      p.push();
+      p.translate(this.pos.x, this.pos.y, this.pos.z);
+      p.rotateX(p.HALF_PI);
+      p.noStroke();
+      gradientFill(this.pos.x, this.pos.y, this.pos.z, 320, 90, 78, t);
+      p.cylinder(this.r, this.h);
+      p.pop();
+    }
+  }
+
+  class GearHorizontal {
+    constructor(x, y, z, radius, thickness, teeth, speed) {
+      this.pos = p.createVector(x, y, z);
+      this.radius = radius; this.thickness = thickness;
+      this.teeth = teeth; this.speed = speed;
+      this.angle = p.random(p.TWO_PI);
+    }
+    update(t) { this.angle = this.speed * t; }
+    draw(t) {
+      p.push();
+      p.translate(this.pos.x, this.pos.y, this.pos.z);
+      p.rotateY(this.angle);
+      p.noStroke();
+      gradientFill(this.pos.x, this.pos.y, this.pos.z, 15, 140, 80, t);
+      p.cylinder(this.radius, this.thickness);
+      const toothD = this.thickness * 1.1;
+      const toothW = (p.TWO_PI * this.radius) / (this.teeth * 4.0);
+      const toothH = this.radius * 0.12;
+      for (let i = 0; i < this.teeth; i++) {
+        const a = (p.TWO_PI * i) / this.teeth;
+        p.push();
+        p.translate(p.cos(a) * this.radius, 0, p.sin(a) * this.radius);
+        p.rotateY(a);
+        gradientFill(this.pos.x, this.pos.y, this.pos.z, 30, 130, 82, t);
+        p.box(toothW, toothH, toothD);
+        p.pop();
+      }
+      p.pop();
+    }
+  }
+
+  class GearVertical {
+    constructor(x, y, z, radius, thickness, teeth, speed) {
+      this.pos = p.createVector(x, y, z);
+      this.radius = radius; this.thickness = thickness;
+      this.teeth = teeth; this.speed = speed;
+      this.angle = p.random(p.TWO_PI);
+    }
+    update(t) { this.angle = this.speed * t; }
+    draw(t) {
+      p.push();
+      p.translate(this.pos.x, this.pos.y, this.pos.z);
+      p.rotateX(this.angle);
+      p.noStroke();
+      gradientFill(this.pos.x, this.pos.y, this.pos.z, 25, 160, 78, t);
+      p.cylinder(this.radius, this.thickness);
+      const toothD = this.thickness * 1.1;
+      const toothW = (p.TWO_PI * this.radius) / (this.teeth * 4.0);
+      const toothH = this.radius * 0.12;
+      for (let i = 0; i < this.teeth; i++) {
+        const a = (p.TWO_PI * i) / this.teeth;
+        p.push();
+        p.translate(0, p.cos(a) * this.radius, p.sin(a) * this.radius);
+        p.rotateX(a);
+        gradientFill(this.pos.x, this.pos.y, this.pos.z, 40, 140, 80, t);
+        p.box(toothW, toothH, toothD);
+        p.pop();
+      }
+      p.pop();
+    }
+  }
+
+  class PulleyStandalone {
+    constructor(x, y, z, radius, thickness, speed) {
+      this.pos = p.createVector(x, y, z);
+      this.radius = radius; this.thickness = thickness; this.speed = speed;
+      this.angle = p.random(p.TWO_PI);
+    }
+    update(t) { this.angle = this.speed * t; }
+    draw(t) {
+      p.push();
+      p.translate(this.pos.x, this.pos.y, this.pos.z);
+      p.rotateY(this.angle);
+      p.noStroke();
+      gradientFill(this.pos.x, this.pos.y, this.pos.z, 80, 130, 75, t);
+      p.cylinder(this.radius, this.thickness * 0.5);
+      p.push();
+      gradientFill(this.pos.x, this.pos.y, this.pos.z, 200, 90, 60, t);
+      p.cylinder(this.radius * 0.7, this.thickness * 1.2);
+      p.pop();
+      p.pop();
+    }
+  }
+
+  class RodWithAttachments {
+    constructor(x1, y1, z1, x2, y2, z2, radius, gearDensity, pulleyDensity) {
+      this.a = p.createVector(x1, y1, z1);
+      this.b = p.createVector(x2, y2, z2);
+      this.radius = radius;
+      this.gearDensity   = gearDensity;
+      this.pulleyDensity = pulleyDensity;
+      this._computeTransform();
+      this._buildAttachments();
+    }
+    _computeTransform() {
+      const dir  = p5.Vector.sub(this.b, this.a);
+      this.length = dir.mag();
+      this.mid    = p5.Vector.add(this.a, this.b).mult(0.5);
+      dir.normalize();
+      this.rotY = p.atan2(dir.x, dir.z);
+      this.rotX = p.atan2(-dir.y, p.sqrt(dir.z * dir.z + dir.x * dir.x));
+    }
+    _buildAttachments() {
+      this.attachments = [];
+      const eff = this.pulleyDensity <= 0 ? 0 : this.gearDensity;
+      const nG = p.floor(p.map(eff,                0, 1, 0, 8));
+      const nP = p.floor(p.map(this.pulleyDensity, 0, 1, 0, 8));
+      const total = nG + nP;
+      if (total === 0) return;
+      let gc = 0, pc = 0, idx = 0;
+      while (idx < total) {
+        let kind;
+        if (gc < nG && pc < nP) {
+          kind = p.random(nG - gc + nP - pc) < (nG - gc) ? 'gear' : 'pulley';
+        } else { kind = gc < nG ? 'gear' : 'pulley'; }
+        this.attachments.push({
+          kind, u: (idx + 1) / (total + 1),
+          orientation: p.random() < 0.5 ? 'horizontal' : 'vertical',
+          radius: this.radius * p.random(1.4, 2.2),
+          thickness: this.radius * p.random(0.6, 1.3),
+          teeth: p.floor(p.random(6, 14)),
+          speed: p.random([-1, 1]) * p.random(0.3, 1.0),
+          phase: p.random(p.TWO_PI)
+        });
+        if (kind === 'gear') gc++; else pc++;
+        idx++;
+      }
+    }
+    update() {}
+    draw(t) {
+      p.push();
+      p.translate(this.mid.x, this.mid.y, this.mid.z);
+      p.rotateY(this.rotY);
+      p.rotateX(this.rotX);
+      p.noStroke();
+      gradientFill(this.mid.x, this.mid.y, this.mid.z, 210, 160, 70, t);
+      p.cylinder(this.radius, this.length);
+      for (const att of this.attachments) {
+        const yPos = (att.u - 0.5) * this.length;
+        p.push();
+        p.translate(0, yPos, 0);
+        if (att.kind === 'gear') {
+          const rotFn = att.orientation === 'horizontal' ? p.rotateY.bind(p) : p.rotateX.bind(p);
+          rotFn(att.phase + att.speed * t);
+          gradientFill(0, 0, 0, att.orientation === 'horizontal' ? 15 : 25, 150, 80, t);
+          p.cylinder(att.radius, att.thickness);
+          const tD = att.thickness * 1.05;
+          const tW = (p.TWO_PI * att.radius) / (att.teeth * 3.5);
+          const tH = att.radius * 0.1;
+          for (let i = 0; i < att.teeth; i++) {
+            const a = (p.TWO_PI * i) / att.teeth;
+            p.push();
+            if (att.orientation === 'horizontal') {
+              p.translate(p.cos(a) * att.radius, 0, p.sin(a) * att.radius);
+              p.rotateY(a);
+            } else {
+              p.translate(0, p.cos(a) * att.radius, p.sin(a) * att.radius);
+              p.rotateX(a);
+            }
+            gradientFill(0, 0, 0, 30, 130, 82, t);
+            p.box(tW, tH, tD);
+            p.pop();
+          }
+        } else {
+          const rotFn = att.orientation === 'horizontal' ? p.rotateY.bind(p) : p.rotateX.bind(p);
+          rotFn(att.phase + att.speed * t);
+          gradientFill(0, 0, 0, 80, 130, 75, t);
+          p.cylinder(att.radius, att.thickness * 0.5);
+          p.push();
+          gradientFill(0, 0, 0, 200, 90, 60, t);
+          p.cylinder(att.radius * 0.7, att.thickness * 1.1);
+          p.pop();
+        }
+        p.pop();
+      }
+      p.pop();
+    }
+  }
+
+}; // end sketch
+
+new p5(sketch);
+</script>
+
+</body>
+</html>
