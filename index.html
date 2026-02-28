@@ -283,6 +283,10 @@
     #machine-stage.is-fullscreen #fs-refresh {
       display: flex;
     }
+    /* Hide fullscreen button when already fullscreen */
+    #machine-stage.is-fullscreen #fs-btn {
+      display: none;
+    }
 
     #fs-btn svg {
       width: 12px;
@@ -592,11 +596,11 @@
     </svg>
     New Machine
   </button>
-  <button id="fs-close" aria-label="Exit fullscreen">
+  <button id="fs-close" aria-label="Stop / Exit fullscreen">
     <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" stroke-width="1.5">
-      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      <rect x="4" y="4" width="16" height="16" rx="2"/>
     </svg>
-    Exit
+    Stop
   </button>
 
   <div id="zero-hint">
