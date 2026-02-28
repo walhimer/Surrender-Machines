@@ -153,7 +153,7 @@
       transform: translateX(-50%);
       width: min(900px, 94vw);
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr auto;
+      grid-template-columns: 1fr 1fr 1fr auto auto;
       gap: 12px;
       pointer-events: none;
       z-index: 10;
@@ -318,31 +318,35 @@
 
     /* zero-state hint inside canvas area */
     #surrender-btn {
-      display: block;
-      width: 100%;
-      margin: 18px 0 0 0;
-      padding: 14px 0;
-      background: transparent;
-      border: 1px solid rgba(240,237,230,0.25);
-      color: #f0ede6;
+      pointer-events: all;
+      background: rgba(200,168,130,0.12);
+      border: 1px solid var(--accent);
+      color: var(--accent);
       font-family: 'IBM Plex Mono', monospace;
-      font-size: 11px;
-      letter-spacing: 0.18em;
+      font-size: 10px;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
+      padding: 12px 14px;
       cursor: pointer;
-      transition: background 0.3s, border-color 0.3s, color 0.3s;
+      backdrop-filter: blur(6px);
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
     }
     #surrender-btn:hover {
-      background: rgba(240,237,230,0.07);
-      border-color: rgba(240,237,230,0.6);
+      background: rgba(200,168,130,0.25);
     }
     #surrender-btn:disabled {
-      opacity: 0.3;
+      opacity: 0.35;
       cursor: default;
     }
     #surrender-btn.surrendered {
-      border-color: rgba(240,237,230,0.1);
-      color: rgba(240,237,230,0.35);
+      border-color: rgba(200,168,130,0.2);
+      color: rgba(200,168,130,0.3);
     }
         #zero-hint {
       position: absolute;
@@ -450,7 +454,8 @@
     @media (max-width: 620px) {
       .concept-body { grid-template-columns: 1fr; }
       #controls { grid-template-columns: 1fr 1fr; }
-      #controls #fs-btn { grid-column: 1 / -1; flex-direction: row; justify-content: center; }
+      #controls #fs-btn { grid-column: 1 / 2; flex-direction: row; justify-content: center; }
+      #controls #surrender-btn { grid-column: 2 / 3; }
     }
 
     .concept-body p {
@@ -553,7 +558,7 @@
 <!-- ── INSTRUCTION BAR ─────────────────────────────────────────────── -->
 <div class="instruction-bar">
   <div class="dot"></div>
-  <p>Adjust the sliders. &nbsp;<span>You decide when it stops.</span></p>
+  <p>Adjust the sliders. &nbsp;<span>You decide when to surrender.</span></p>
 </div>
 
 <!-- ── MACHINE STAGE ───────────────────────────────────────────────── -->
@@ -577,30 +582,35 @@
       <div class="ctrl-desc">static residue</div>
     </div>
 
-    <button id="fs-btn" title="Toggle fullscreen" aria-label="Toggle fullscreen">
-      <svg id="fs-icon-open" viewBox="0 0 24 24">
+    <!-- Fullscreen button — hidden when already in fullscreen -->
+    <button id="fs-btn" title="Fullscreen" aria-label="Enter fullscreen">
+      <svg viewBox="0 0 24 24">
         <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
         <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
       </svg>
       Fullscreen
     </button>
+
+    <!-- Surrender button — always visible, in grid -->
+    <button id="surrender-btn">Surrender</button>
   </div>
 
-  <button id="surrender-btn">Surrender</button>
+  <!-- Collapse button — only visible in fullscreen, top-right corner -->
+  <button id="fs-close" aria-label="Exit fullscreen">
+    <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" stroke-width="1.5">
+      <polyline points="4 14 4 20 10 20"/><polyline points="20 10 20 4 14 4"/>
+      <line x1="20" y1="4" x2="13" y2="11"/><line x1="4" y1="20" x2="11" y2="13"/>
+    </svg>
+    Collapse
+  </button>
 
-  <!-- Buttons only visible in fullscreen -->
+  <!-- New Machine — only visible in fullscreen -->
   <button id="fs-refresh" aria-label="New machine">
     <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" stroke-width="1.5">
       <polyline points="23 4 23 10 17 10"/>
       <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
     </svg>
     New Machine
-  </button>
-  <button id="fs-close" aria-label="Stop / Exit fullscreen">
-    <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" stroke-width="1.5">
-      <rect x="4" y="4" width="16" height="16" rx="2"/>
-    </svg>
-    Stop
   </button>
 
   <div id="zero-hint">
