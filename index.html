@@ -523,7 +523,7 @@
 <!-- ── INSTRUCTION BAR ─────────────────────────────────────────────── -->
 <div class="instruction-bar">
   <div class="dot"></div>
-  <p>Adjust the sliders below. &nbsp;<span>Set all four to zero.</span> &nbsp; Drag to orbit. &nbsp; Scroll to zoom.</p>
+  <p>Adjust the sliders below. &nbsp;<span>Set all to zero for peace. Push to 100% to break it.</span> &nbsp; Drag to orbit. &nbsp; Scroll to zoom.</p>
 </div>
 
 <!-- ── MACHINE STAGE ───────────────────────────────────────────────── -->
@@ -577,7 +577,7 @@
   </button>
 
   <div id="zero-hint">
-    <p>The machine has surrendered.</p>
+    <p>The machine is at peace.</p>
   </div>
 
 </div>
@@ -609,7 +609,7 @@
     <div class="process-step">
       <p class="step-num">04</p>
       <p class="step-title">Generative</p>
-      <p class="step-desc">Live P5.js system above. Emotions control structure in real time. Zero = blank canvas</p>
+      <p class="step-desc">Live P5.js system above. Emotions control structure. Zero = calm. 100% = breaking machine</p>
     </div>
   </div>
 </div>
@@ -733,20 +733,35 @@ function _getSliderVal(el) { return parseInt(el.value, 10); }
 </script>
 
 <script>
-// ── SURRENDER MACHINE – p5 sketch ─────────────────────────────────
+// ── SURRENDER MACHINES — rewritten logic ──────────────────────────
+//
+// PHILOSOPHY:
+//   0%   → simple, calm, working machine  (surrendered state)
+//   ~65% → richest, most elaborate machine (peak complexity)
+//   100% → machine breaks — parts jitter, spin out, flicker, distort
+//
+// Each emotion controls its domain AND its own stress level.
+// Stress only begins above 65% and is fully destructive at 100%.
+//
+// anger      → gears (speed + density)
+// pride      → platforms + columns (structural ambition)
+// ego        → rods (reach + connectivity)
+// frustration→ pulleys (spinning energy)
+
 let parts = [];
-let seed = Math.floor(Math.random() * 999999);
+let seed  = Math.floor(Math.random() * 999999);
 
 let angerVal       = 0.5;
 let prideVal       = 0.5;
 let egoVal         = 0.5;
 let frustrationVal = 0.5;
 
-let gPlatformExtras = 2;
-let gColumnCount    = 6;
-let gGearCount      = 120;
-let gPulleyCount    = 20;
-let gRodCount       = 10;
+// Derived counts
+let gPlatformExtras = 0;
+let gColumnCount    = 4;
+let gGearCount      = 60;
+let gPulleyCount    = 10;
+let gRodCount       = 5;
 
 let prevPlatformExtras = -1;
 let prevColumnCount    = -1;
@@ -754,29 +769,44 @@ let prevGearCount      = -1;
 let prevPulleyCount    = -1;
 let prevRodCount       = -1;
 
-let hasAnyActivity = true;
-let machineBuilt   = false;
+// Global stress values (0..1) read by all part classes
+let angerStress       = 0;
+let prideStress       = 0;
+let egoStress         = 0;
+let frustrationStress = 0;
+let totalStress       = 0; // max of all four
 
-// p5 sketch runs inside the machine-stage div
+let machineBuilt = false;
+
+// ── How much richness does a 0..1 emotion value produce?
+// Peaks at val=0.65, flat above that (stress takes over instead)
+function richness(val) {
+  return Math.min(val / 0.65, 1.0);
+}
+
+// ── Stress only kicks in above 65%, full at 100%
+function stressOf(val) {
+  return Math.max(0, (val - 0.65) / 0.35);
+}
+
 const sketch = function(p) {
 
   p.setup = function() {
     const stage = document.getElementById('machine-stage');
-    const size  = Math.min(stage.offsetWidth, 1000);
-    const cnv   = p.createCanvas(size, size, p.WEBGL);
+    const w = Math.min(stage.offsetWidth, 1000);
+    const cnv = p.createCanvas(w, w, p.WEBGL);
     cnv.parent('machine-stage');
     p.pixelDensity(Math.min(window.devicePixelRatio, 2));
     p.angleMode(p.RADIANS);
     p.colorMode(p.HSB, 360, 100, 100, 100);
     p.smooth();
-
     updateTargets();
     buildMachine();
     machineBuilt = true;
   };
 
   p.draw = function() {
-    // New machine requested from refresh button
+    // New machine requested
     if (window._newSeedRequested) {
       window._newSeedRequested = false;
       seed = Math.floor(Math.random() * 999999);
@@ -785,11 +815,7 @@ const sketch = function(p) {
 
     updateTargets();
 
-    if (!hasAnyActivity) {
-      p.background(0, 0, 100);
-      return;
-    }
-
+    // Rebuild structure when counts change
     if (
       gPlatformExtras !== prevPlatformExtras ||
       gColumnCount    !== prevColumnCount    ||
@@ -810,7 +836,7 @@ const sketch = function(p) {
     p.background(0, 0, 100);
     p.ambientLight(80);
     p.directionalLight(255, 255, 255,  0.35, -0.4, -1);
-    p.directionalLight(180, 180, 255, -0.3,   0.2,  1);
+    p.directionalLight(180, 180, 255, -0.30,  0.2,  1);
     p.orbitControl();
     p.rotateX(-0.4);
     p.rotateY(0.3);
@@ -820,58 +846,99 @@ const sketch = function(p) {
     for (let part of parts) { part.update(t); part.draw(t); }
   };
 
-  // ── Window resize ──────────────────────────────────────────────
   p.windowResized = function() {
     const stage = document.getElementById('machine-stage');
     const isFS  = stage.classList.contains('is-fullscreen');
-    const w     = isFS ? window.innerWidth  : Math.min(stage.offsetWidth, 1000);
-    const h     = isFS ? window.innerHeight : w;
+    const w = isFS ? window.innerWidth  : Math.min(stage.offsetWidth, 1000);
+    const h = isFS ? window.innerHeight : w;
     p.resizeCanvas(w, h);
   };
 
-  // ── Slider → counts ───────────────────────────────────────────
+  // ── Map sliders → counts + stress ─────────────────────────────
   function updateTargets() {
     angerVal       = _getSliderVal(_slAnger)       / 100.0;
     prideVal       = _getSliderVal(_slPride)       / 100.0;
     egoVal         = _getSliderVal(_slEgo)         / 100.0;
     frustrationVal = _getSliderVal(_slFrustration) / 100.0;
 
-    hasAnyActivity = angerVal > 0 || prideVal > 0 || egoVal > 0 || frustrationVal > 0;
+    // Stress values — only above 65%
+    angerStress       = stressOf(angerVal);
+    prideStress       = stressOf(prideVal);
+    egoStress         = stressOf(egoVal);
+    frustrationStress = stressOf(frustrationVal);
+    totalStress       = Math.max(angerStress, prideStress, egoStress, frustrationStress);
 
-    if (!hasAnyActivity) {
-      gPlatformExtras = gColumnCount = gGearCount = gPulleyCount = gRodCount = 0;
-      return;
-    }
+    // Richness curves — peak at 65%, flat above
+    const rA = richness(angerVal);
+    const rP = richness(prideVal);
+    const rE = richness(egoVal);
+    const rF = richness(frustrationVal);
 
-    gGearCount      = p.floor(p.map(angerVal,       0, 1, 0, 260));
-    gPlatformExtras = p.floor(p.map(prideVal,        0, 1, 0, 3));
-    gColumnCount    = p.floor(p.map(prideVal,        0, 1, 0, 12));
-    gRodCount       = p.floor(p.map(egoVal,          0, 1, 0, 25));
-    gPulleyCount    = p.floor(p.map(frustrationVal,  0, 1, 0, 70));
+    // Counts: min values ensure machine always exists (surrendered state)
+    // anger → gears. At zero: 4 slow gears. At peak: 220.
+    gGearCount = p.floor(p.map(rA, 0, 1, 4, 220));
 
-    if (gPulleyCount === 0) gGearCount = 0;
+    // pride → platforms + columns. At zero: 0 extra platforms, 3 columns.
+    gPlatformExtras = p.floor(p.map(rP, 0, 1, 0, 3));
+    gColumnCount    = p.floor(p.map(rP, 0, 1, 3, 12));
+
+    // ego → rods. At zero: 1 rod.
+    gRodCount = p.floor(p.map(rE, 0, 1, 1, 22));
+
+    // frustration → pulleys. At zero: 2 pulleys.
+    gPulleyCount = p.floor(p.map(rF, 0, 1, 2, 60));
+
+    // Interdependency: no gears without pulleys
+    if (gPulleyCount < 2) gGearCount = Math.min(gGearCount, 4);
+
+    // Zero-hint: only show when ALL are at true zero
+    const allZero = angerVal === 0 && prideVal === 0 && egoVal === 0 && frustrationVal === 0;
+    document.getElementById('zero-hint').classList.toggle('visible', allZero);
   }
 
-  // ── Gradient fill helper ───────────────────────────────────────
-  function gradientFill(x, y, z, baseHue, hueSpread, maxAlpha, t) {
+  // ── Gradient fill — shifts hue toward harsh red under stress ───
+  function gradientFill(x, y, z, baseHue, hueSpread, maxAlpha, t, stress) {
+    stress = stress || 0;
     const nx = p.constrain(p.map(x, -600, 600, -1, 1), -1, 1);
     const ny = p.constrain(p.map(y, -600, 600, -1, 1), -1, 1);
     const nz = p.constrain(p.map(z, -600, 600, -1, 1), -1, 1);
     const posFactor  = nx + ny + nz;
     const timeFactor = p.sin(t * 0.9 + posFactor * 2.5);
     let h = baseHue + hueSpread * (0.5 * posFactor + 0.5 * timeFactor);
+    // Under stress, hue drifts toward red (0/360) and saturation maxes out
+    h = p.lerp(h, 0, stress * 0.7);
     h = (h % 360 + 360) % 360;
+    const sat = p.lerp(100, 100, 1); // always saturated
+    const bri = p.lerp(100, 100, 1);
     maxAlpha = p.min(maxAlpha, 85);
-    const minAlpha = maxAlpha * 0.25;
-    const f        = (ny + 1) * 0.5;
-    p.fill(h, 100, 100, p.lerp(minAlpha, maxAlpha, f));
+    const f      = (ny + 1) * 0.5;
+    // Flicker under high stress
+    let alphaVal = p.lerp(maxAlpha * 0.25, maxAlpha, f);
+    if (stress > 0.5 && p.random() < stress * 0.35) {
+      alphaVal *= p.random(0.1, 0.5); // flicker
+    }
+    p.fill(h, sat, bri, alphaVal);
+  }
+
+  // ── Stress jitter — random displacement added to position ─────
+  function jitterOffset(stress) {
+    if (stress <= 0) return { x: 0, y: 0, z: 0 };
+    const mag = stress * stress * 120;
+    return {
+      x: p.random(-mag, mag),
+      y: p.random(-mag, mag),
+      z: p.random(-mag, mag)
+    };
+  }
+
+  // ── Speed multiplier — calm at 0, destructive at 100% ─────────
+  function speedMult(stress) {
+    return 1 + stress * stress * 7; // 1x at 0 stress, 8x at full stress
   }
 
   // ── Build machine ─────────────────────────────────────────────
   function buildMachine() {
     parts = [];
-    if (!hasAnyActivity) return;
-
     p.randomSeed(seed);
 
     const sf        = 1.2;
@@ -879,11 +946,13 @@ const sketch = function(p) {
     const baseD     = 600 * sf;
     const baseThick = 25  * sf;
 
+    // Base platform always present
     parts.push(new BasePlate(0, 0, 0, baseW, baseThick, baseD));
 
+    // Extra platforms (pride)
     for (let i = 0; i < gPlatformExtras; i++) {
-      const w  = baseW * p.random(0.6, 1.1);
-      const d  = baseD * p.random(0.6, 1.1);
+      const w  = baseW  * p.random(0.6, 1.1);
+      const d  = baseD  * p.random(0.6, 1.1);
       const h  = baseThick * p.random(0.6, 1.3);
       const px = p.random(-60, 60) * sf;
       const pz = p.random(-60, 60) * sf;
@@ -891,29 +960,27 @@ const sketch = function(p) {
       parts.push(new BasePlate(px, py, pz, w, h, d));
     }
 
+    // Columns — always at least 3
     const columnPositions = [];
-    if (gColumnCount > 0) {
-      const colH = p.random(140, 220) * sf;
-      const colR = p.random(14, 24)   * sf;
-      for (let i = 0; i < gColumnCount; i++) {
-        const x = p.random(-baseW * 0.35, baseW * 0.35);
-        const z = p.random(-baseD * 0.35, baseD * 0.35);
-        parts.push(new Column(x, -colH / 2 - baseThick / 2, z, colR, colH));
-        columnPositions.push(p.createVector(x, -colH, z));
-      }
+    const colH = p.random(140, 220) * sf;
+    const colR = p.random(14, 24)   * sf;
+    for (let i = 0; i < gColumnCount; i++) {
+      const x = p.random(-baseW * 0.35, baseW * 0.35);
+      const z = p.random(-baseD * 0.35, baseD * 0.35);
+      parts.push(new Column(x, -colH / 2 - baseThick / 2, z, colR, colH));
+      columnPositions.push(p.createVector(x, -colH, z));
     }
 
-    if (columnPositions.length === 0) return;
-
+    // Gears (anger)
     for (let i = 0; i < gGearCount; i++) {
-      const anchor  = p.random(columnPositions);
-      const r       = p.random(40, 80) * sf;
-      const thick   = p.random(14, 26) * sf;
-      const teeth   = p.floor(p.random(8, 18));
-      const yOff    = p.random(-200, 200);
-      const speed   = p.random([-1, 1]) * p.random(0.2, 0.8);
-      const GearCls = p.random() < 0.5 ? GearHorizontal : GearVertical;
-      parts.push(new GearCls(
+      const anchor = p.random(columnPositions);
+      const r      = p.random(40, 80) * sf;
+      const thick  = p.random(14, 26) * sf;
+      const teeth  = p.floor(p.random(8, 18));
+      const yOff   = p.random(-200, 200);
+      const speed  = p.random([-1, 1]) * p.random(0.2, 0.8);
+      const Cls    = p.random() < 0.5 ? GearHorizontal : GearVertical;
+      parts.push(new Cls(
         anchor.x + p.random(-80, 20),
         anchor.y + yOff,
         anchor.z + p.random(-20, 20),
@@ -921,6 +988,7 @@ const sketch = function(p) {
       ));
     }
 
+    // Pulleys (frustration)
     for (let i = 0; i < gPulleyCount; i++) {
       const a = p.random(columnPositions);
       const b = p.random(columnPositions);
@@ -934,18 +1002,23 @@ const sketch = function(p) {
       ));
     }
 
+    // Rods (ego) — always at least 1
     for (let i = 0; i < gRodCount; i++) {
       const a = p.random(columnPositions);
       const b = p.random(columnPositions);
       if (a === b) continue;
       parts.push(new RodWithAttachments(
         a.x, a.y, a.z, b.x, b.y, b.z,
-        p.random(5, 9) * sf, angerVal, frustrationVal
+        p.random(5, 9) * sf,
+        richness(angerVal),
+        richness(frustrationVal)
       ));
     }
   }
 
-  // ── Part classes ──────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════
+  // PART CLASSES — all accept stress and apply jitter + flicker
+  // ══════════════════════════════════════════════════════════════
 
   class BasePlate {
     constructor(x, y, z, w, h, d) {
@@ -954,10 +1027,12 @@ const sketch = function(p) {
     }
     update() {}
     draw(t) {
+      const s = prideStress;
+      const j = jitterOffset(s);
       p.push();
-      p.translate(this.pos.x, this.pos.y + this.h / 2, this.pos.z);
+      p.translate(this.pos.x + j.x, this.pos.y + this.h / 2 + j.y, this.pos.z + j.z);
       p.noStroke();
-      gradientFill(this.pos.x, this.pos.y, this.pos.z, 305, 110, 80, t);
+      gradientFill(this.pos.x, this.pos.y, this.pos.z, 305, 110, 80, t, s);
       p.box(this.w, this.h, this.d);
       p.pop();
     }
@@ -970,11 +1045,13 @@ const sketch = function(p) {
     }
     update() {}
     draw(t) {
+      const s = prideStress;
+      const j = jitterOffset(s);
       p.push();
-      p.translate(this.pos.x, this.pos.y, this.pos.z);
+      p.translate(this.pos.x + j.x, this.pos.y + j.y, this.pos.z + j.z);
       p.rotateX(p.HALF_PI);
       p.noStroke();
-      gradientFill(this.pos.x, this.pos.y, this.pos.z, 320, 90, 78, t);
+      gradientFill(this.pos.x, this.pos.y, this.pos.z, 320, 90, 78, t, s);
       p.cylinder(this.r, this.h);
       p.pop();
     }
@@ -984,27 +1061,31 @@ const sketch = function(p) {
     constructor(x, y, z, radius, thickness, teeth, speed) {
       this.pos = p.createVector(x, y, z);
       this.radius = radius; this.thickness = thickness;
-      this.teeth = teeth; this.speed = speed;
+      this.teeth = teeth; this.baseSpeed = speed;
       this.angle = p.random(p.TWO_PI);
     }
-    update(t) { this.angle = this.speed * t; }
+    update(t) {
+      this.angle = this.baseSpeed * speedMult(angerStress) * t;
+    }
     draw(t) {
+      const s = angerStress;
+      const j = jitterOffset(s);
       p.push();
-      p.translate(this.pos.x, this.pos.y, this.pos.z);
+      p.translate(this.pos.x + j.x, this.pos.y + j.y, this.pos.z + j.z);
       p.rotateY(this.angle);
       p.noStroke();
-      gradientFill(this.pos.x, this.pos.y, this.pos.z, 15, 140, 80, t);
+      gradientFill(this.pos.x, this.pos.y, this.pos.z, 15, 140, 80, t, s);
       p.cylinder(this.radius, this.thickness);
-      const toothD = this.thickness * 1.1;
-      const toothW = (p.TWO_PI * this.radius) / (this.teeth * 4.0);
-      const toothH = this.radius * 0.12;
+      const tD = this.thickness * 1.1;
+      const tW = (p.TWO_PI * this.radius) / (this.teeth * 4.0);
+      const tH = this.radius * 0.12;
       for (let i = 0; i < this.teeth; i++) {
         const a = (p.TWO_PI * i) / this.teeth;
         p.push();
         p.translate(p.cos(a) * this.radius, 0, p.sin(a) * this.radius);
         p.rotateY(a);
-        gradientFill(this.pos.x, this.pos.y, this.pos.z, 30, 130, 82, t);
-        p.box(toothW, toothH, toothD);
+        gradientFill(this.pos.x, this.pos.y, this.pos.z, 30, 130, 82, t, s);
+        p.box(tW, tH, tD);
         p.pop();
       }
       p.pop();
@@ -1015,27 +1096,31 @@ const sketch = function(p) {
     constructor(x, y, z, radius, thickness, teeth, speed) {
       this.pos = p.createVector(x, y, z);
       this.radius = radius; this.thickness = thickness;
-      this.teeth = teeth; this.speed = speed;
+      this.teeth = teeth; this.baseSpeed = speed;
       this.angle = p.random(p.TWO_PI);
     }
-    update(t) { this.angle = this.speed * t; }
+    update(t) {
+      this.angle = this.baseSpeed * speedMult(angerStress) * t;
+    }
     draw(t) {
+      const s = angerStress;
+      const j = jitterOffset(s);
       p.push();
-      p.translate(this.pos.x, this.pos.y, this.pos.z);
+      p.translate(this.pos.x + j.x, this.pos.y + j.y, this.pos.z + j.z);
       p.rotateX(this.angle);
       p.noStroke();
-      gradientFill(this.pos.x, this.pos.y, this.pos.z, 25, 160, 78, t);
+      gradientFill(this.pos.x, this.pos.y, this.pos.z, 25, 160, 78, t, s);
       p.cylinder(this.radius, this.thickness);
-      const toothD = this.thickness * 1.1;
-      const toothW = (p.TWO_PI * this.radius) / (this.teeth * 4.0);
-      const toothH = this.radius * 0.12;
+      const tD = this.thickness * 1.1;
+      const tW = (p.TWO_PI * this.radius) / (this.teeth * 4.0);
+      const tH = this.radius * 0.12;
       for (let i = 0; i < this.teeth; i++) {
         const a = (p.TWO_PI * i) / this.teeth;
         p.push();
         p.translate(0, p.cos(a) * this.radius, p.sin(a) * this.radius);
         p.rotateX(a);
-        gradientFill(this.pos.x, this.pos.y, this.pos.z, 40, 140, 80, t);
-        p.box(toothW, toothH, toothD);
+        gradientFill(this.pos.x, this.pos.y, this.pos.z, 40, 140, 80, t, s);
+        p.box(tW, tH, tD);
         p.pop();
       }
       p.pop();
@@ -1045,19 +1130,24 @@ const sketch = function(p) {
   class PulleyStandalone {
     constructor(x, y, z, radius, thickness, speed) {
       this.pos = p.createVector(x, y, z);
-      this.radius = radius; this.thickness = thickness; this.speed = speed;
+      this.radius = radius; this.thickness = thickness;
+      this.baseSpeed = speed;
       this.angle = p.random(p.TWO_PI);
     }
-    update(t) { this.angle = this.speed * t; }
+    update(t) {
+      this.angle = this.baseSpeed * speedMult(frustrationStress) * t;
+    }
     draw(t) {
+      const s = frustrationStress;
+      const j = jitterOffset(s);
       p.push();
-      p.translate(this.pos.x, this.pos.y, this.pos.z);
+      p.translate(this.pos.x + j.x, this.pos.y + j.y, this.pos.z + j.z);
       p.rotateY(this.angle);
       p.noStroke();
-      gradientFill(this.pos.x, this.pos.y, this.pos.z, 80, 130, 75, t);
+      gradientFill(this.pos.x, this.pos.y, this.pos.z, 80, 130, 75, t, s);
       p.cylinder(this.radius, this.thickness * 0.5);
       p.push();
-      gradientFill(this.pos.x, this.pos.y, this.pos.z, 200, 90, 60, t);
+      gradientFill(this.pos.x, this.pos.y, this.pos.z, 200, 90, 60, t, s);
       p.cylinder(this.radius * 0.7, this.thickness * 1.2);
       p.pop();
       p.pop();
@@ -1085,8 +1175,8 @@ const sketch = function(p) {
     _buildAttachments() {
       this.attachments = [];
       const eff = this.pulleyDensity <= 0 ? 0 : this.gearDensity;
-      const nG = p.floor(p.map(eff,                0, 1, 0, 8));
-      const nP = p.floor(p.map(this.pulleyDensity, 0, 1, 0, 8));
+      const nG  = p.floor(p.map(eff,                0, 1, 0, 8));
+      const nP  = p.floor(p.map(this.pulleyDensity, 0, 1, 0, 8));
       const total = nG + nP;
       if (total === 0) return;
       let gc = 0, pc = 0, idx = 0;
@@ -1101,7 +1191,7 @@ const sketch = function(p) {
           radius: this.radius * p.random(1.4, 2.2),
           thickness: this.radius * p.random(0.6, 1.3),
           teeth: p.floor(p.random(6, 14)),
-          speed: p.random([-1, 1]) * p.random(0.3, 1.0),
+          baseSpeed: p.random([-1, 1]) * p.random(0.3, 1.0),
           phase: p.random(p.TWO_PI)
         });
         if (kind === 'gear') gc++; else pc++;
@@ -1110,21 +1200,34 @@ const sketch = function(p) {
     }
     update() {}
     draw(t) {
+      const sE = egoStress;
+      const jRod = jitterOffset(sE);
       p.push();
-      p.translate(this.mid.x, this.mid.y, this.mid.z);
+      p.translate(
+        this.mid.x + jRod.x,
+        this.mid.y + jRod.y,
+        this.mid.z + jRod.z
+      );
       p.rotateY(this.rotY);
       p.rotateX(this.rotX);
       p.noStroke();
-      gradientFill(this.mid.x, this.mid.y, this.mid.z, 210, 160, 70, t);
+      gradientFill(this.mid.x, this.mid.y, this.mid.z, 210, 160, 70, t, sE);
       p.cylinder(this.radius, this.length);
+
       for (const att of this.attachments) {
-        const yPos = (att.u - 0.5) * this.length;
+        const isGear   = att.kind === 'gear';
+        const attStress = isGear ? angerStress : frustrationStress;
+        const sm       = speedMult(attStress);
+        const yPos     = (att.u - 0.5) * this.length;
+        const jA       = jitterOffset(attStress);
+
         p.push();
-        p.translate(0, yPos, 0);
-        if (att.kind === 'gear') {
+        p.translate(jA.x, yPos + jA.y, jA.z);
+
+        if (isGear) {
           const rotFn = att.orientation === 'horizontal' ? p.rotateY.bind(p) : p.rotateX.bind(p);
-          rotFn(att.phase + att.speed * t);
-          gradientFill(0, 0, 0, att.orientation === 'horizontal' ? 15 : 25, 150, 80, t);
+          rotFn(att.phase + att.baseSpeed * sm * t);
+          gradientFill(0, 0, 0, att.orientation === 'horizontal' ? 15 : 25, 150, 80, t, attStress);
           p.cylinder(att.radius, att.thickness);
           const tD = att.thickness * 1.05;
           const tW = (p.TWO_PI * att.radius) / (att.teeth * 3.5);
@@ -1139,17 +1242,17 @@ const sketch = function(p) {
               p.translate(0, p.cos(a) * att.radius, p.sin(a) * att.radius);
               p.rotateX(a);
             }
-            gradientFill(0, 0, 0, 30, 130, 82, t);
+            gradientFill(0, 0, 0, 30, 130, 82, t, attStress);
             p.box(tW, tH, tD);
             p.pop();
           }
         } else {
           const rotFn = att.orientation === 'horizontal' ? p.rotateY.bind(p) : p.rotateX.bind(p);
-          rotFn(att.phase + att.speed * t);
-          gradientFill(0, 0, 0, 80, 130, 75, t);
+          rotFn(att.phase + att.baseSpeed * sm * t);
+          gradientFill(0, 0, 0, 80, 130, 75, t, attStress);
           p.cylinder(att.radius, att.thickness * 0.5);
           p.push();
-          gradientFill(0, 0, 0, 200, 90, 60, t);
+          gradientFill(0, 0, 0, 200, 90, 60, t, attStress);
           p.cylinder(att.radius * 0.7, att.thickness * 1.1);
           p.pop();
         }
@@ -1162,6 +1265,7 @@ const sketch = function(p) {
 }; // end sketch
 
 new p5(sketch);
+</script>
 </script>
 
 </body>
