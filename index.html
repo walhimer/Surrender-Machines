@@ -509,9 +509,8 @@
   <p class="kicker">Generative Art &nbsp;/&nbsp; Interactive System &nbsp;/&nbsp; 2025–2026</p>
   <h1>Surrender<br /><em>Machines</em></h1>
   <p class="lede">
-    Four human emotions — <strong>anger, pride, ego, frustration</strong> — determine
-    the physical structure of a machine. As each diminishes, parts disappear.
-    When all reach zero, the machine ceases to exist.
+    Three human emotions — <strong>anger, ego, and attachment</strong> — determine
+    the structure of surrender. Modify the machine to see the outcomes.
   </p>
   <div class="thesis">
     Marcel Duchamp's bachelors desire the bride but the circuit never closes.<br />
@@ -617,27 +616,26 @@
   <div class="concept-body">
     <div>
       <p>
-        There is a man outside your window whistling. Getting angry will not stop him.
-        Telling yourself you are too important to be disturbed will not stop him.
-        Holding on to the memory of the noise after he has gone will not stop him.
-        The only thing that changes is you.
+        We all need to learn surrender. Not defeat — surrender. The conscious decision
+        to stop fighting what cannot be changed. We all have frustrations. We all have
+        things that bother us, people that irritate us, noise we didn't ask for.
+        And often the best thing — the only useful thing — is acceptance.
       </p>
       <p>
-        Duchamp's bachelors grind endlessly in the lower panel of the Large Glass,
-        desiring the bride above. The circuit never closes. The crack in the glass
-        sealed it permanently. His is a cold joke — beautiful machinery, impossible connection.
+        Acceptance is not passive. It is a choice you have to make, sometimes many
+        times in a single day. The machine reminds you of that. It runs on anger, ego,
+        and attachment. Turn them up and watch what happens. Turn them down and watch
+        what happens. The machine shows you the structure of the problem.
       </p>
       <p>
-        This machine proposes the opposite. The bachelors can see the bride.
-        But anger clouds the view. Ego insists it deserves a better view.
-        Attachment keeps replaying the noise long after it has stopped.
-        When all three quiet — not by force, but by release — the circuit opens.
-        The connection was always there. The machine was in the way.
+        But the machine cannot surrender for you. That is the point. There are many
+        things in life we simply have to accept. There is no other choice that leads
+        anywhere worth going. This machine exists to make that visible.
       </p>
     </div>
     <div>
       <p class="pull-quote">
-        "You cannot build your way to surrender. The machine runs until it stops. So do we."
+        "Surrender is not the absence of feeling. It is the conscious decision to stop letting feeling decide."
       </p>
     </div>
   </div>
@@ -765,20 +763,22 @@ let angerStress      = 0;
 let egoStress        = 0;
 let attachmentStress = 0;
 
+let gPlatformExtras = 0;
 let gColumnCount    = 4;
 let gGearCount      = 60;
 let gPulleyCount    = 10;
 let gRodCount       = 5;
 
-let prevColumnCount = -1;
-let prevGearCount   = -1;
-let prevPulleyCount = -1;
-let prevRodCount    = -1;
+let prevPlatformExtras = -1;
+let prevColumnCount    = -1;
+let prevGearCount      = -1;
+let prevPulleyCount    = -1;
+let prevRodCount       = -1;
 
 let machineBuilt = false;
 
 // ── TIMER ─────────────────────────────────────────────────────────
-const TIMER_DURATION  = Math.floor(Math.random() * (300 - 20 + 1) + 20) * 1000;
+const TIMER_DURATION  = Math.floor(Math.random() * (300 - 120 + 1) + 120) * 1000;
 const FADE_DURATION   = 12000;
 let   timerStart      = null;
 let   shadowAmount    = 0;
@@ -811,6 +811,7 @@ const sketch = function(p) {
       surrendered   = false;
       shadowAmount  = 0;
       timerStart    = null;
+      prevPlatformExtras = -1;
     }
 
     if (timerStart === null) timerStart = p.millis();
@@ -823,23 +824,25 @@ const sketch = function(p) {
     updateTargets();
 
     if (!surrendered && (
-      gColumnCount !== prevColumnCount ||
-      gGearCount   !== prevGearCount   ||
-      gPulleyCount !== prevPulleyCount ||
-      gRodCount    !== prevRodCount    ||
+      gPlatformExtras !== prevPlatformExtras ||
+      gColumnCount    !== prevColumnCount    ||
+      gGearCount      !== prevGearCount      ||
+      gPulleyCount    !== prevPulleyCount    ||
+      gRodCount       !== prevRodCount       ||
       !machineBuilt
     )) {
       buildMachine();
-      machineBuilt    = true;
-      prevColumnCount = gColumnCount;
-      prevGearCount   = gGearCount;
-      prevPulleyCount = gPulleyCount;
-      prevRodCount    = gRodCount;
+      machineBuilt       = true;
+      prevPlatformExtras = gPlatformExtras;
+      prevColumnCount    = gColumnCount;
+      prevGearCount      = gGearCount;
+      prevPulleyCount    = gPulleyCount;
+      prevRodCount       = gRodCount;
     }
 
     p.background(0, 0, 100);
 
-    const lightBright = p.lerp(80, 20, shadowAmount);
+    const lightBright = p.lerp(80, 50, shadowAmount);
     p.ambientLight(lightBright);
     if (shadowAmount < 1) {
       p.directionalLight(255, 255, 255,  0.35, -0.4, -1);
@@ -931,13 +934,14 @@ const sketch = function(p) {
     const rE = richness(egoVal);
     const rAt = richness(attachmentVal);
 
-    // Anger → gears (primary driver of machine complexity)
-    gGearCount   = p.floor(p.map(rA,  0, 1, 4,  200));
-    // Ego → structure (columns)
-    gColumnCount = p.floor(p.map(rE,  0, 1, 3,  12));
-    // Attachment → pulleys + rods (the connective tissue, the holding on)
-    gPulleyCount = p.floor(p.map(rAt, 0, 1, 2,  60));
-    gRodCount    = p.floor(p.map(rAt, 0, 1, 1,  20));
+    // Anger → gears (the churning, the breaking)
+    gGearCount      = p.floor(p.map(rA,  0, 1, 4,   200));
+    // Ego → platforms + columns (structural ambition, the weight of self)
+    gPlatformExtras = p.floor(p.map(rE,  0, 1, 0,   3));
+    gColumnCount    = p.floor(p.map(rE,  0, 1, 3,   12));
+    // Attachment → pulleys + rods (the holding on, the connective tissue)
+    gPulleyCount    = p.floor(p.map(rAt, 0, 1, 2,   60));
+    gRodCount       = p.floor(p.map(rAt, 0, 1, 1,   20));
 
     // No gears without columns
     if (gColumnCount < 2) gGearCount = Math.min(gGearCount, 4);
@@ -949,7 +953,7 @@ const sketch = function(p) {
   function machineFill(x, y, z, baseHue, hueSpread, maxAlpha, t, stress) {
     stress = stress || 0;
     if (shadowAmount >= 1.0) {
-      p.fill(0, 0, p.lerp(72, 85, p.noise(x * 0.002, y * 0.002, t * 0.05)), 18);
+      p.fill(0, 0, p.lerp(90, 96, p.noise(x * 0.002, y * 0.002, t * 0.05)), 8);
       return;
     }
     const nx = p.constrain(p.map(x, -600, 600, -1, 1), -1, 1);
@@ -964,8 +968,8 @@ const sketch = function(p) {
     let alpha = p.lerp(maxAlpha * 0.25, maxAlpha, (ny + 1) * 0.5);
     if (stress > 0.5 && p.random() < stress * 0.35) alpha *= p.random(0.1, 0.5);
     const sat = p.lerp(100, 0, shadowAmount);
-    const bri = p.lerp(100, 78, shadowAmount);
-    alpha     = p.lerp(alpha, 14, shadowAmount);
+    const bri = p.lerp(100, 95, shadowAmount);
+    alpha     = p.lerp(alpha, 6, shadowAmount);
     p.fill(h, sat, bri, alpha);
   }
 
@@ -987,6 +991,17 @@ const sketch = function(p) {
     const bW = 600 * sf, bD = 600 * sf, bT = 25 * sf;
 
     parts.push(new BasePlate(0, 0, 0, bW, bT, bD));
+
+    // Extra platforms — ego builds more structure to stand on
+    for (let i = 0; i < gPlatformExtras; i++) {
+      const w  = bW * p.random(0.5, 1.0);
+      const d  = bD * p.random(0.5, 1.0);
+      const h  = bT * p.random(0.6, 1.4);
+      const px = p.random(-60, 60) * sf;
+      const pz = p.random(-60, 60) * sf;
+      const py = -p.random(80, 220) * sf;
+      parts.push(new BasePlate(px, py, pz, w, h, d));
+    }
 
     const colPositions = [];
     const colH = p.random(140, 220) * sf;
