@@ -313,7 +313,34 @@
     }
 
     /* zero-state hint inside canvas area */
-    #zero-hint {
+    #surrender-btn {
+      display: block;
+      width: 100%;
+      margin: 18px 0 0 0;
+      padding: 14px 0;
+      background: transparent;
+      border: 1px solid rgba(240,237,230,0.25);
+      color: #f0ede6;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.3s, border-color 0.3s, color 0.3s;
+    }
+    #surrender-btn:hover {
+      background: rgba(240,237,230,0.07);
+      border-color: rgba(240,237,230,0.6);
+    }
+    #surrender-btn:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+    #surrender-btn.surrendered {
+      border-color: rgba(240,237,230,0.1);
+      color: rgba(240,237,230,0.35);
+    }
+        #zero-hint {
       position: absolute;
       top: 50%;
       left: 50%;
@@ -522,7 +549,7 @@
 <!-- ── INSTRUCTION BAR ─────────────────────────────────────────────── -->
 <div class="instruction-bar">
   <div class="dot"></div>
-  <p>Adjust the sliders. Push them high. &nbsp;<span>The machine decides when it stops.</span></p>
+  <p>Adjust the sliders. &nbsp;<span>You decide when it stops.</span></p>
 </div>
 
 <!-- ── MACHINE STAGE ───────────────────────────────────────────────── -->
@@ -555,6 +582,8 @@
     </button>
   </div>
 
+  <button id="surrender-btn">Surrender</button>
+
   <!-- Buttons only visible in fullscreen -->
   <button id="fs-refresh" aria-label="New machine">
     <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" stroke-width="1.5">
@@ -577,7 +606,7 @@
 </div>
 
 <!-- ── ORBIT NOTE ──────────────────────────────────────────────────── -->
-<p class="orbit-note">↳ Drag to orbit &nbsp;·&nbsp; scroll to zoom &nbsp;·&nbsp; the machine runs on its own time</p>
+<p class="orbit-note">↳ Drag to orbit &nbsp;·&nbsp; scroll to zoom</p>
 
 <hr class="divider" />
 
@@ -667,8 +696,17 @@
 // ── Fullscreen toggle ──────────────────────────────────────────────
 const stage    = document.getElementById('machine-stage');
 const fsBtn    = document.getElementById('fs-btn');
-const fsClose   = document.getElementById('fs-close');
-const fsRefresh = document.getElementById('fs-refresh');
+const fsClose      = document.getElementById('fs-close');
+const fsRefresh    = document.getElementById('fs-refresh');
+const surrenderBtn = document.getElementById('surrender-btn');
+
+surrenderBtn.addEventListener('click', () => {
+  if (surrendered || surrenderStart !== null) return;
+  window._surrenderPressed = true;
+  surrenderBtn.textContent = 'Surrendering…';
+  surrenderBtn.disabled = true;
+  surrenderBtn.classList.add('surrendered');
+});
 
 fsRefresh.addEventListener('click', () => {
   // Reset all sliders to 50
@@ -778,9 +816,8 @@ let prevRodCount       = -1;
 let machineBuilt = false;
 
 // ── TIMER ─────────────────────────────────────────────────────────
-const TIMER_DURATION  = Math.floor(Math.random() * (300 - 120 + 1) + 120) * 1000;
-const FADE_DURATION   = 12000;
-let   timerStart      = null;
+const FADE_DURATION   = 14000; // 14 second conscious fade
+let   surrenderStart  = null;   // null until surrender button pressed
 let   shadowAmount    = 0;
 let   surrendered     = false;
 
@@ -807,17 +844,23 @@ const sketch = function(p) {
     if (window._newSeedRequested) {
       window._newSeedRequested = false;
       seed = Math.floor(Math.random() * 999999);
-      machineBuilt  = false;
-      surrendered   = false;
-      shadowAmount  = 0;
-      timerStart    = null;
+      machineBuilt    = false;
+      surrendered     = false;
+      shadowAmount    = 0;
+      surrenderStart  = null;
       prevPlatformExtras = -1;
+      const sb = document.getElementById('surrender-btn');
+      if (sb) { sb.disabled = false; sb.classList.remove('surrendered'); sb.textContent = 'Surrender'; }
     }
 
-    if (timerStart === null) timerStart = p.millis();
-    const elapsed = p.millis() - timerStart;
-    if (elapsed >= TIMER_DURATION) {
-      shadowAmount = Math.min((elapsed - TIMER_DURATION) / FADE_DURATION, 1.0);
+    // Surrender triggered by button press
+    if (window._surrenderPressed && surrenderStart === null) {
+      window._surrenderPressed = false;
+      surrenderStart = p.millis();
+    }
+    if (surrenderStart !== null) {
+      const fadeElapsed = p.millis() - surrenderStart;
+      shadowAmount = Math.min(fadeElapsed / FADE_DURATION, 1.0);
       if (shadowAmount >= 1.0) surrendered = true;
     }
 
