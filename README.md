@@ -1,2 +1,2 @@
 Surrender Machines
-- https://walhimer.github.io/Surrender-Machines/
+- https://walhimer.github.io/surrender-machines/
